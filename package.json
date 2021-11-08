@@ -1,0 +1,17 @@
+{
+  "name": "aoc2021",
+  "version": "1.0.0",
+  "description": "",
+  "main": "1.js",
+  "scripts": {
+    "1": "ts-node ./src/1.ts",
+    "2": "ts-node ./src/2.ts",
+    "3": "ts-node ./src/3.ts"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "ts-node": "^10.4.0",
+    "typescript": "^4.5.2"
+  }
+}
