@@ -61,42 +61,33 @@ class Board {
 
 class GameTable {
   boards: Board[]
-  winningScore: number
+  scores: number[]
 
   constructor(boardsValues: number[][]) {
     this.boards = boardsValues.map((bvs) => new Board(bvs))
-    this.winningScore = -1
+    this.scores = []
   }
 
   addCall(call: number) {
-    // add the call to each board, but stop if a winner is found
-    this.boards.find((b) => {
-      b.addCall(call)
-      if (b.getIsWinner()) { this.winningScore = b.getScore(); return true }
-      return false
+    // add the call to each board that hasn't already won
+    this.boards.forEach((b) => {
+      if (!b.getIsWinner()) {
+        b.addCall(call)
+        if (b.getIsWinner()) { this.scores.push(b.getScore()) }
+      }
     })
   }
 
-  getWinningScore() {
-    return this.winningScore
-  }
-
-  hasWinner() {
-    return this.getWinningScore() > -1
+  getScores() {
+    return this.scores
   }
 }
 
-const findFirstWinner = (callSequence: number[], boardValues: number[][]) => {
+const getAllWinningScores = (callSequence: number[], boardValues: number[][]) => {
   const gameTable = new GameTable(boardValues)
-  // go through calls until a winning board is found
-  const winningCall = callSequence.find((call) => {
-    gameTable.addCall(call)
 
-    if (gameTable.hasWinner()) { return true }
-    return false
-  })
-
-  return { winningCall, winningScore: gameTable.getWinningScore() }
+  callSequence.forEach((call) =>  gameTable.addCall(call))
+  return gameTable.getScores()
 }
 
 const testCallSequence = [ 7,4,9,5,11,17,23,2,0,14,21,24,10,16,13,6,15,25,12,22,18,20,8,19,3,26,1 ]
@@ -120,10 +111,8 @@ const testBoardValues = [
      2,  0, 12,  3,  7 ],
 ]
 
-test(
-  'find first winner',
-  { winningCall: 24, winningScore: 4512 },
-  () => findFirstWinner(testCallSequence, testBoardValues))
+test('get all winning scores', [ 4512, 0, 0 ],
+  () => getAllWinningScores(testCallSequence, testBoardValues))
 
 parseInput('src/4.input').then((input: string[]) => {
   // first line is call sequence
@@ -141,6 +130,11 @@ parseInput('src/4.input').then((input: string[]) => {
     return acc
   }, [])
 
-  const firstWinner = findFirstWinner(callSequence, boardValues)
+  const scores = getAllWinningScores(callSequence, boardValues)
+  const firstWinner = scores[0]
+  const lastWinner = scores[scores.length - 1]
+
+  console.log('board scores', scores)
   console.log('first winner', firstWinner)
+  console.log('last winner', lastWinner)
 })
