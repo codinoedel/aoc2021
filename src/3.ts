@@ -1,155 +1,103 @@
 // Day 3: Status readings
 import { test, parseInput } from './helpers'
 
-// Power rating
-interface BitCount {
-  zero: number
-  one: number
-}
-
-const getBitCounts = (input: string[]) => (
-  input.reduce((acc: BitCount[], binary: string) => {
-    binary.split('').forEach((b, idx) => {
-      // If we don't have a node for this position, make one
-      if (!acc[idx]) {
-        acc.push({
-          zero: b === '0' ? 1 : 0,
-          one: b === '1' ? 1 : 0,
-        })
-      }
-
-      // Otherwise, increment values as needed
-      else {
-        if (b === '0') { acc[idx].zero += 1 }
-        else { acc[idx].one += 1 }
-      }
-
-    })
-
-    return acc
-  }, [])
-)
-
 const bitCountToNumber = (bc: string[]) => (
   parseInt(bc.join(''), 2)
 )
 
-const getGammaRate = (bitCounts: BitCount[]) => {
-  const mostCommon = bitCounts.map((bc: BitCount) => {
-    if (bc.zero > bc.one) { return '0' }
-    else { return '1' }
-  }, [])
+type NodeValue = '0'|'1'|''
 
-  return bitCountToNumber(mostCommon)
-}
+class BinaryTrieNode {
+  links: { '0'?: BinaryTrieNode, '1'?: BinaryTrieNode }
+  count: number // number of entries that pass through this node
+  value: NodeValue
 
-const getEpsilonRate = (bitCounts: BitCount[]) => {
-  const leastCommon = bitCounts.map((bc: BitCount) => {
-    if (bc.zero < bc.one) { return '0' }
-    else { return '1' }
-  }, [])
-
-  return bitCountToNumber(leastCommon)
-}
-
-const getPowerRate = (input: string[]) => {
-  const bitCounts = getBitCounts(input)
-  console.log('bit counts', bitCounts)
-
-  const gammaRate = getGammaRate(bitCounts)
-  console.log('gamma rate', gammaRate)
-
-  const epsilonRate = getEpsilonRate(bitCounts)
-  console.log('epsilon rate', epsilonRate)
-
-  return gammaRate * epsilonRate
-}
-
-type NodeValue = string
-
-class TrieNode {
-  links: Record<string, TrieNode> // record of links from this node
-  count: number // number of links to this node
-  value?: NodeValue
-
-  constructor(value?: NodeValue, nextSequence?: string) {
-    this.links = {}
+  constructor(value: NodeValue, nextSequence?: string) {
     this.count = 0
-
-    if (value) { this.value = value }
-    if (nextSequence) { this.insert(nextSequence) }
+    this.links = { }
+    this.value = value
+    this.insert(nextSequence)
   }
 
-  insert(sequence: string) {
+  insert(sequence?: string) {
     this.count += 1
 
     // If there is remaining sequence to record, find the next node and keep recording
-    if (sequence.length > 0) {
-      const nextValue = sequence.charAt(0)
+    if (sequence && sequence.length > 0) {
+      const nextValue = sequence.charAt(0) as NodeValue
       const nextSequence = sequence.slice(1)
 
-      if (this.links.hasOwnProperty(nextValue)) {
-        this.links[nextValue].insert(nextSequence)
-      } else {
-        this.links[nextValue] = new TrieNode(nextValue, nextSequence)
+      if (nextValue) {
+        if (this.links[nextValue] instanceof BinaryTrieNode) {
+          this.links[nextValue]?.insert(nextSequence)
+        } else {
+          this.links[nextValue] = new BinaryTrieNode(nextValue, nextSequence)
+        }
       }
     }
   }
 
-  getLinksAsc() {
-    return Object.values(this.links).sort((node1, node2) => {
-      // Attempt to sort by most popular
-      if (node1.count < node2.count) { return -1 }
-      if (node1.count > node2.count) { return 1 }
+  getLinksAsc(): BinaryTrieNode[] {
+    const links = Object.values(this.links)
 
-      // If node counts are equal, sort zeroes first
-      if (node1.value === '0') { return -1 }
-      else { return 1 }
-    })
+    if ((links.length > 1) && (links[0].count > links[1].count)) {
+      links.reverse()
+    }
+
+    return links
   }
 
-  getMostPopularLink(): TrieNode {
-    return this.getLinksAsc().pop() as TrieNode
-  }
-
-  getLeastPopularLink(): TrieNode {
-    return this.getLinksAsc().shift() as TrieNode
+  getXPopularLink(x: 'least'|'most'): BinaryTrieNode {
+    return x === 'least'
+    ? this.getLinksAsc().shift() as BinaryTrieNode
+    : this.getLinksAsc().pop() as BinaryTrieNode
   }
 }
 
-class Trie {
-  root: TrieNode
+class BinaryTrie {
+  root: BinaryTrieNode
 
   constructor(sequences: string[]) {
-    this.root = new TrieNode()
+    this.root = new BinaryTrieNode('')
     sequences.forEach((seq) => this.root.insert(seq))
   }
 
-  walk(fn: (value: NodeValue, count: number, depth: number) => any, node=this.root, depth=0) {
+  walk(fn: (value: NodeValue|'', count: number, depth: number) => any, node=this.root, depth=0) {
     fn(node.value || '', node.count, depth)
-    Object.values(node.links).forEach((l) => this.walk(fn, l, depth+=1))
+    depth += 1
+    Object.values(node.links).forEach((l) => this.walk(fn, l, depth))
   }
 
-  getMostPopularPath(path: TrieNode[] = [], node=this.root) {
+  getXPopularPath(x: 'least'|'most', path: BinaryTrieNode[]=[], node=this.root) {
     if (Object.keys(node.links).length > 0) {
-      const mostPopularLink = node.getMostPopularLink()
-      path.push(mostPopularLink)
+      const xPopularLink = node.getXPopularLink(x)
+      path.push(xPopularLink)
 
-      this.getMostPopularPath(path, mostPopularLink)
+      this.getXPopularPath(x, path, xPopularLink)
     }
 
     return path
+
   }
+  getXCommonBitByDepth(x: 'least' | 'most') {
+    const counts: { '0': number, '1': number }[] = []
 
-  getLeastPopularPath(path: TrieNode[] = [], node=this.root) {
-    if (Object.keys(node.links).length > 0) {
-      const leastPopularLink = node.getLeastPopularLink()
-      path.push(leastPopularLink)
+    this.walk((value, count, depth) => {
+      if (!value || depth === 0) { return }
+      if (counts[depth - 1]) { counts[depth - 1][value] += count }
+      else {
+        counts.push({
+          0: value === '0' ? count : 0,
+          1: value === '1' ? count : 0,
+        })
+      }
+    })
 
-      this.getLeastPopularPath(path, leastPopularLink)
-    }
-
-    return path
+    return counts.map((c) => {
+      if ((x === 'most' && c['0'] > c['1']) ||
+          (x === 'least' && c['0'] < c['1'])) { return '0' }
+      else { return '1' }
+    })
   }
 
   print() {
@@ -159,41 +107,66 @@ class Trie {
   }
 }
 
-const testInput = [ '00100', '11110', '10110', '10111', '10101', '01111', '00111', '11100', '10000', '11001', '00010', '01010', ]
+// gamma rating: most common bit
+const getGammaRate = (trie: BinaryTrie) => {
+  const mostCommon = trie.getXCommonBitByDepth('most')
+  return bitCountToNumber(mostCommon)
+}
 
-test('sample power test', 198, () => getPowerRate(testInput))
+// epsilon rating: least common bit
+const getEpsilonRate = (trie: BinaryTrie) => {
+  const leastCommon = trie.getXCommonBitByDepth('least')
+  return bitCountToNumber(leastCommon)
+}
 
-// Trie test
-const trie = new Trie(testInput)
-trie.print()
+// power rate (most common bit * least common bit)
+const getPowerRate = (trie: BinaryTrie) => {
+  const gammaRate = getGammaRate(trie)
+  const epsilonRate = getEpsilonRate(trie)
 
-// oxygen generator rating (most common path)
-const getOxygenGeneratorRating = (trie: Trie) => {
-  const path = trie.getMostPopularPath()
+  return gammaRate * epsilonRate
+}
+
+// oxygen generator rating: most popular path
+const getOxygenGeneratorRating = (trie: BinaryTrie) => {
+  const path = trie.getXPopularPath('most')
   return path.map((node) => node.value).join('')
 }
 
-console.log('oxygen generator rating', getOxygenGeneratorRating(trie))
-
-const getCO2ScrubberRating = (trie: Trie) => {
-  const path = trie.getLeastPopularPath()
+// CO2 scrubber rating: least popular path
+const getCO2ScrubberRating = (trie: BinaryTrie) => {
+  const path = trie.getXPopularPath('least')
   return path.map((node) => node.value).join('')
 }
 
-console.log('CO2 scrubber rating', getCO2ScrubberRating(trie))
-
-const getLifeSupportRating = (trie: Trie) => {
+// life support rating: most common * least common
+const getLifeSupportRating = (trie: BinaryTrie) => {
   const oxRating = getOxygenGeneratorRating(trie)
   const co2Rating = getCO2ScrubberRating(trie)
 
   return parseInt(oxRating, 2) * parseInt(co2Rating, 2)
 }
 
-// Real input
-parseInput('src/3.input').then((input: string[]) => {
-  console.log("power rate: ", getPowerRate(input))
+//////// Tests
+const testInput = [ '00100', '11110', '10110', '10111', '10101', '01111', '00111', '11100', '10000', '11001', '00010', '01010', ]
+const testTrie = new BinaryTrie(testInput)
+testTrie.print()
 
-  const realTrie = new Trie(input)
+// Part 1
+test('sample gamma rate', 22, () => getGammaRate(testTrie))
+test('sample epsilon rate', 9, () => getEpsilonRate(testTrie))
+test('sample power rate', 198, () => getPowerRate(testTrie))
+
+// Part 2
+test('sample oxygen generator rating', '10111', () => getOxygenGeneratorRating(testTrie))
+test('sample co2 scrubber rating', '01010', () => getCO2ScrubberRating(testTrie))
+test('sample life support rating', 230, () => getLifeSupportRating(testTrie))
+
+////// Real input
+parseInput('src/3.input').then((input: string[]) => {
+  const realTrie = new BinaryTrie(input)
+
+  console.log("power rate: ", getPowerRate(realTrie))
   console.log("life support rating: ", getLifeSupportRating(realTrie))
 })
 
