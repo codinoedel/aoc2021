@@ -15,5 +15,6 @@ export const test = (name: string, expected: any, testFn: () => any) => {
   console.log('EXPECTED: ', expected)
 
   const actual = testFn()
-  console.log(`ACTUAL: ${actual}\n`)
+
+  console.log('ACTUAL: ', actual, "\n")
 }

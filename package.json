@@ -6,7 +6,8 @@
   "scripts": {
     "1": "ts-node ./src/1.ts",
     "2": "ts-node ./src/2.ts",
-    "3": "ts-node ./src/3.ts"
+    "3": "ts-node ./src/3.ts",
+    "4": "ts-node ./src/4.ts"
   },
   "author": "",
   "license": "ISC",
